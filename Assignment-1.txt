@@ -1,0 +1,57 @@
+Introduction to Data Science in Python
+
+Assignment-1 
+def example_word_count():
+    # This example question requires counting words in the example_string below.
+    example_string = "Amy is 5 years old"
+    
+    # YOUR CODE HERE.
+    # You should write your solution here, and return your result, you can comment out or delete the
+    # NotImplementedError below.
+    result = example_string.split(" ")
+    return len(result)
+
+    #raise NotImplementedError()
+====================================================
+PART-A
+import re
+def names():
+    simple_string = """Amy is 5 years old, and her sister Mary is 2 years old. 
+    Ruth and Peter, their parents, have 3 kids."""
+
+    # YOUR CODE HERE
+    raise NotImplementedError()
+
+---------------------------------------
+
+assert len(names()) == 4, "There are four names in the simple_string"
+
+===============================================
+Part-B
+import re
+def grades():
+    with open ("assets/grades.txt", "r") as file:
+        grades = file.read()
+
+    # YOUR CODE HERE
+    raise NotImplementedError()
+----------------------------------
+assert len(grades()) == 16
+====================================================
+PART-C
+import re
+def logs():
+    with open("assets/logdata.txt", "r") as file:
+        logdata = file.read()
+    
+    # YOUR CODE HERE
+    raise NotImplementedError()
+-----------------------------------------
+assert len(logs()) == 979
+
+one_item={'host': '146.204.224.152',
+  'user_name': 'feest6811',
+  'time': '21/Jun/2019:15:45:24 -0700',
+  'request': 'POST /incentivize HTTP/1.1'}
+assert one_item in logs(), "Sorry, this item should be in the log results, check your formating"
+

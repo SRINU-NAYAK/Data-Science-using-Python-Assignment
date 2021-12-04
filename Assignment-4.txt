@@ -1,0 +1,365 @@
+Question 1
+
+import pandas as pd
+import numpy as np
+import scipy.stats as stats
+import re
+
+pd.set_option('display.max_rows', 100)
+
+def get_area(city):
+    area = city.split()[0]
+    
+    # Some names need to be updated manually
+    if area in ['New','Los','St.','San','Tampa']: area = area + ' ' + city.split()[1]
+    if area == "Vegas": area = 'Las Vegas'
+    if area == "New Jersey": area = 'New York'
+    if area == "San Jose": area = 'San Francisco'
+    if area == "Arizona": area = 'Phoenix'
+    if area == "Florida": area = 'Miami'
+    if area == "Anaheim": area = 'Los Angeles'
+    if area == "Colorado": area = 'Denver'
+    if area == "Carolina": area = 'Raleigh'
+    if area == "Minnesota": area = 'Minneapolis'
+    return area
+
+def get_city_area(city):
+    # Some names need to be updated manually
+    dct = {'New York City':'New York',
+          'San Francisco Bay Area':'San Francisco',
+          'Dallas–Fort Worth':'Dallas',
+          'Washington, D.C.':'Washington',
+          'Minneapolis–Saint Paul':'Minneapolis',
+          'Miami–Fort Lauderdale':'Miami',
+          'Tampa Bay Area':'Tampa Bay'
+          }   
+    return dct.get(city,city)
+
+def nhl_correlation(): 
+    # load cities and get rid of [notes], __ values and white spaces
+    cities = pd.read_html("assets/wikipedia_data.html",na_values='—')[1]
+    cities = cities.iloc[:-1,[0,3,5,6,7,8]]
+    cities = cities.replace("\[.*\]","", regex=True).replace(r'^\s*$', np.nan, regex=True).replace(r'—', np.nan, regex=True)
+    cities.rename(columns={'Population (2016 est.)[8]':'Population'}, inplace=True)
+    cities = cities.astype({'Population': 'int64'}) # change to numeric type so the aggregation can be done
+    cities['area'] = cities['Metropolitan area'].apply(get_city_area) # adjust the names
+    cities.drop(['NFL','MLB','NBA','Metropolitan area','NHL'], inplace=True, axis=1) # drop obsolete columns
+
+    # load nhl, get rid of * in team names and drop "Divisions" lines, select just 2018 data
+    nhl_df = pd.read_csv("assets/nhl.csv")
+    nhl_df = (nhl_df[nhl_df['year'] == 2018]
+              .replace('\*','',regex=True)[['team','W','L']][~nhl_df['team'].str.contains("Division")])
+    nhl_df = nhl_df.astype({'W': 'int32','L': 'int32' }) # change to numeric type so the aggregation can be done
+    nhl_df['ratio'] = nhl_df['W'] / (nhl_df['W'] + nhl_df['L']) # calculate W/L ratio
+    nhl_df['area'] = nhl_df['team'].apply(get_area) # adjust the names
+    nhl_df.drop(['W','L'], inplace=True, axis=1) # drop obsolete columns
+
+    # Merge tables, group by Area and aggregate population and w/l ratio
+    df = pd.merge(cities, nhl_df, how='inner').dropna().groupby(['area']).agg({"Population":np.mean,"ratio":np.mean})
+
+    population_by_region = df['Population'] # pass in metropolitan area population from cities
+    win_loss_by_region = df['ratio'] # pass in win/loss ratio from nhl_df in the same order as cities["Metropolitan area"]
+
+    assert len(population_by_region) == len(win_loss_by_region), "Q1: Your lists must be the same length"
+    assert len(population_by_region) == 28, "Q1: There should be 28 teams being analysed for NHL"
+    
+    return stats.pearsonr(population_by_region, win_loss_by_region)[0] # First value in tuple is the correlation
+
+nhl_correlation()
+==========================================================================
+Question 2
+
+
+import pandas as pd
+import numpy as np
+import scipy.stats as stats
+import re
+
+pd.set_option('display.max_rows', 100)
+
+def get_area(city):
+    area = city.split()[0]
+    
+    # Some names need to be updated manually
+    if area in ['New','Los','St.','San','Tampa','Oklahoma']: area = area + ' ' + city.split()[1]
+    if area == "Vegas": area = 'Las Vegas'
+    if area in ["New Jersey", 'Brooklyn']: area = 'New York'
+    if area in ["San Jose", 'Golden']: area = 'San Francisco'
+    if area == "Arizona": area = 'Phoenix'
+    if area == "Florida": area = 'Miami'
+    if area == "Anaheim": area = 'Los Angeles'
+    if area == "Colorado": area = 'Denver'
+    if area == "Carolina": area = 'Raleigh'
+    if area == "Minnesota": area = 'Minneapolis'
+    if area == "Utah": area = 'Salt Lake City'
+    if area == "Indiana": area = 'Indianapolis'
+    return area
+
+def get_city_area(city):
+    # Some names need to be updated manually
+    dct = {'New York City':'New York',
+          'San Francisco Bay Area':'San Francisco',
+          'Dallas–Fort Worth':'Dallas',
+          'Washington, D.C.':'Washington',
+          'Minneapolis–Saint Paul':'Minneapolis',
+          'Miami–Fort Lauderdale':'Miami',
+          'Tampa Bay Area':'Tampa Bay'
+          }   
+    return dct.get(city,city)
+
+def nba_correlation():
+    nba_df=pd.read_csv("assets/nba.csv")
+    cities=pd.read_html("assets/wikipedia_data.html")[1]
+    cities=cities.iloc[:-1,[0,3,5,6,7,8]]
+
+    # load cities and get rid of [notes], __ values and white spaces
+    cities = pd.read_html("assets/wikipedia_data.html",na_values='—')[1]
+    cities = cities.iloc[:-1,[0,3,5,6,7,8]]
+    cities = cities.replace("\[.*\]","", regex=True).replace(r'^\s*$', np.nan, regex=True).replace(r'—', np.nan, regex=True)
+    cities.rename(columns={'Population (2016 est.)[8]':'Population'}, inplace=True)
+    cities = cities.astype({'Population': 'int64'}) # change to numeric type so the aggregation can be done
+    cities['area'] = cities['Metropolitan area'].apply(get_city_area) # adjuct the names
+    cities.drop(['NFL','MLB','Metropolitan area','NHL'], inplace=True, axis=1) # drop obsolete columns
+
+    # load nba, get rid of * in team names and drop "Divisions" lines, select just 2018 data
+    nba_df = pd.read_csv("assets/nba.csv")
+    nba_df = nba_df[nba_df['year'] == 2018].replace("\(.*\)","", regex=True).replace('\*','',regex=True)[['team','W/L%']][~nba_df['team'].str.contains("Division")]
+    nba_df.rename(columns={'W/L%':'ratio'}, inplace=True)
+    nba_df = nba_df.astype({'ratio': 'float64'}) # change to numeric type so the aggregation can be done
+    nba_df['area'] = nba_df['team'].apply(get_area) # adjust the names
+
+    df = pd.merge(cities, nba_df, how='outer').dropna().groupby(['area']).agg({"Population":np.mean,"ratio":np.mean})
+    
+    population_by_region = df['Population'] # pass in metropolitan area population from cities
+    win_loss_by_region = df['ratio'] # pass in win/loss ratio from nba_df in the same order as cities["Metropolitan area"]
+
+    assert len(population_by_region) == len(win_loss_by_region), "Q2: Your lists must be the same length"
+    assert len(population_by_region) == 28, "Q2: There should be 28 teams being analysed for NBA"
+
+    return stats.pearsonr(population_by_region, win_loss_by_region)[0]
+
+nba_correlation()
+
+=====================================================================
+Question 3
+
+import pandas as pd
+import numpy as np
+import scipy.stats as stats
+import re
+
+
+pd.set_option('display.max_rows', 100)
+
+def get_area(city):
+    area = city.split()[0]
+    
+    # Some names need to be updated manually
+    if area in ['New','Los','St.','San','Tampa','Oklahoma','Kansas']: area = area + ' ' + city.split()[1]
+    if area == "Vegas": area = 'Las Vegas'
+    if area in ["New Jersey", 'Brooklyn']: area = 'New York'
+    if area in ["San Jose", 'Golden', 'Oakland']: area = 'San Francisco'
+    if area == "Arizona": area = 'Phoenix'
+    if area == "Florida": area = 'Miami'
+    if area == "Anaheim": area = 'Los Angeles'
+    if area == "Colorado": area = 'Denver'
+    if area == "Carolina": area = 'Raleigh'
+    if area == "Minnesota": area = 'Minneapolis'
+    if area == "Utah": area = 'Salt Lake City'
+    if area == "Indiana": area = 'Indianapolis'
+    if area == "Texas": area = 'Dallas'
+    return area
+
+def get_city_area(city):
+    # Some names need to be updated manually
+    dct = {'New York City':'New York',
+          'San Francisco Bay Area':'San Francisco',
+          'Dallas–Fort Worth':'Dallas',
+          'Washington, D.C.':'Washington',
+          'Minneapolis–Saint Paul':'Minneapolis',
+          'Miami–Fort Lauderdale':'Miami',
+          'Tampa Bay Area':'Tampa Bay'
+          }   
+    return dct.get(city,city)
+
+def mlb_correlation(): 
+    mlb_df=pd.read_csv("assets/mlb.csv")
+    cities=pd.read_html("assets/wikipedia_data.html")[1]
+    cities=cities.iloc[:-1,[0,3,5,6,7,8]]
+ 
+    # load cities and get rid of [notes], __ values and white spaces
+    cities = pd.read_html("assets/wikipedia_data.html",na_values='—')[1]
+    cities = cities.iloc[:-1,[0,3,5,6,7,8]]
+    cities = cities.replace("\[.*\]","", regex=True).replace(r'^\s*$', np.nan, regex=True).replace(r'—', np.nan, regex=True)
+    cities.rename(columns={'Population (2016 est.)[8]':'Population'}, inplace=True)
+    cities = cities.astype({'Population': 'int64'}) # change to numeric type so the aggregation can be done
+    cities['area'] = cities['Metropolitan area'].apply(get_city_area) # adjuct the names
+    cities.drop(['NFL','NBA','Metropolitan area','NHL','MLB'], inplace=True, axis=1) # drop obsolete columns
+
+    # load mlb, get rid of * in team names and drop "Divisions" lines, select just 2018 data
+    mlb_df = pd.read_csv("assets/mlb.csv")
+    mlb_df = mlb_df[mlb_df['year'] == 2018].replace("\(.*\)","", regex=True).replace('\*','',regex=True)[['team','W-L%']][~mlb_df['team'].str.contains("Division")]
+    mlb_df.rename(columns={'W-L%':'ratio'}, inplace=True)
+    mlb_df = mlb_df.astype({'ratio': 'float64'}) # change to numeric type so the aggregation can be done
+    mlb_df['area'] = mlb_df['team'].apply(get_area) # adjust the names
+
+    df = pd.merge(cities, mlb_df, how='outer').dropna().groupby(['area']).agg({"Population":np.mean,"ratio":np.mean})
+ 
+
+    population_by_region = df['Population'] # pass in metropolitan area population from cities
+    win_loss_by_region = df['ratio'] # pass in win/loss ratio from mlb_df in the same order as cities["Metropolitan area"]
+
+    assert len(population_by_region) == len(win_loss_by_region), "Q3: Your lists must be the same length"
+    assert len(population_by_region) == 26, "Q3: There should be 26 teams being analysed for MLB"
+
+    return stats.pearsonr(population_by_region, win_loss_by_region)[0]
+
+mlb_correlation()
+=================================================================================
+Question 4
+
+import pandas as pd
+import numpy as np
+import scipy.stats as stats
+import re
+
+pd.set_option('display.max_rows', 100)
+
+def get_area(city):
+    area = city.split()[0]
+    
+    # Some names need to be updated manually
+    if area in ['New','Los','St.','San','Tampa','Oklahoma','Kansas', 'Green']: area = area + ' ' + city.split()[1]
+    if area == "Vegas": area = 'Las Vegas'
+    if area in ["New Jersey", 'Brooklyn']: area = 'New York'
+    if area in ["San Jose", 'Golden', 'Oakland']: area = 'San Francisco'
+    if area == "Arizona": area = 'Phoenix'
+    if area == "Florida": area = 'Miami'
+    if area == "Anaheim": area = 'Los Angeles'
+    if area == "Colorado": area = 'Denver'
+    if area == "Carolina": area = 'Raleigh'
+    if area == "Minnesota": area = 'Minneapolis'
+    if area == "Utah": area = 'Salt Lake City'
+    if area == "Indiana": area = 'Indianapolis'
+    if area == "Texas": area = 'Dallas'
+    if area == "New England": area = 'Boston'
+    if area == "Tennessee": area = 'Nashville'
+    return area
+
+def get_city_area(city):
+    # Some names need to be updated manually
+    dct = {'New York City':'New York',
+          'San Francisco Bay Area':'San Francisco',
+          'Dallas–Fort Worth':'Dallas',
+          'Washington, D.C.':'Washington',
+          'Minneapolis–Saint Paul':'Minneapolis',
+          'Miami–Fort Lauderdale':'Miami',
+          'Tampa Bay Area':'Tampa Bay'
+          }   
+    return dct.get(city,city)
+
+def nfl_correlation(): 
+    nfl_df=pd.read_csv("assets/nfl.csv")
+    cities=pd.read_html("assets/wikipedia_data.html")[1]
+    cities=cities.iloc[:-1,[0,3,5,6,7,8]]
+    
+    # load cities and get rid of [notes], __ values and white spaces
+    cities = pd.read_html("assets/wikipedia_data.html",na_values='—')[1]
+    cities = cities.iloc[:-1,[0,3,5,6,7,8]]
+    cities = cities.replace("\[.*\]","", regex=True).replace(r'^\s*$', np.nan, regex=True).replace(r'—', np.nan, regex=True)
+    cities.rename(columns={'Population (2016 est.)[8]':'Population'}, inplace=True)
+    cities = cities.astype({'Population': 'int64'}) # change to numeric type so the aggregation can be done
+    cities['area'] = cities['Metropolitan area'].apply(get_city_area) # adjuct the names
+    cities.drop(['NFL','NBA','Metropolitan area','NHL','MLB'], inplace=True, axis=1) # drop obsolete columns
+
+    # load nfl, get rid of * in team names and drop "Divisions" lines, select just 2018 data
+    nfl_df = pd.read_csv("assets/nfl.csv")
+    nfl_df = nfl_df[nfl_df['year'] == 2018].replace("\(.*\)","", regex=True).replace('\*','',regex=True)[['team','W-L%']][~nfl_df['team'].str.contains("FC")]
+    nfl_df.rename(columns={'W-L%':'ratio'}, inplace=True)
+    nfl_df = nfl_df.astype({'ratio': 'float64'}) # change to numeric type so the aggregation can be done
+    nfl_df['area'] = nfl_df['team'].apply(get_area) # adjust the names
+
+    df = pd.merge(cities, nfl_df, how='inner').dropna().groupby(['area']).agg({"Population":np.mean,"ratio":np.mean})
+ 
+
+    population_by_region = df['Population'] # pass in metropolitan area population from cities
+    win_loss_by_region = df['ratio'] # pass in win/loss ratio from nfl_df in the same order as cities["Metropolitan area"]
+
+    assert len(population_by_region) == len(win_loss_by_region), "Q4: Your lists must be the same length"
+    assert len(population_by_region) == 29, "Q4: There should be 29 teams being analysed for NFL"
+
+    return stats.pearsonr(population_by_region, win_loss_by_region)[0]
+nfl_correlation()
+
+=====================================================================
+Question 5
+
+import pandas as pd
+import numpy as np
+import scipy.stats as stats
+import re
+
+pd.set_option('display.max_rows', 100)
+
+def get_area(city):
+    area = city.split()[0]
+    
+    # Some names need to be updated manually
+    if area in ['New','Los','St.','San','Tampa','Oklahoma','Kansas', 'Green']: area = area + ' ' + city.split()[1]
+    if area == "Vegas": area = 'Las Vegas'
+    if area in ["New Jersey", 'Brooklyn']: area = 'New York'
+    if area in ["San Jose", 'Golden', 'Oakland']: area = 'San Francisco'
+    if area == "Arizona": area = 'Phoenix'
+    if area == "Florida": area = 'Miami'
+    if area == "Anaheim": area = 'Los Angeles'
+    if area == "Colorado": area = 'Denver'
+    if area == "Carolina": area = 'Raleigh'
+    if area == "Minnesota": area = 'Minneapolis'
+    if area == "Utah": area = 'Salt Lake City'
+    if area == "Indiana": area = 'Indianapolis'
+    if area == "Texas": area = 'Dallas'
+    if area == "New England": area = 'Boston'
+    if area == "Tennessee": area = 'Nashville'
+    return area
+
+def get_city_area(city):
+    # Some names need to be updated manually
+    dct = {'New York City':'New York',
+          'San Francisco Bay Area':'San Francisco',
+          'Dallas–Fort Worth':'Dallas',
+          'Washington, D.C.':'Washington',
+          'Minneapolis–Saint Paul':'Minneapolis',
+          'Miami–Fort Lauderdale':'Miami',
+          'Tampa Bay Area':'Tampa Bay'
+          }   
+    return dct.get(city,city)
+
+def sports_team_performance():
+    mlb_df=pd.read_csv("assets/mlb.csv")
+    nhl_df=pd.read_csv("assets/nhl.csv")
+    nba_df=pd.read_csv("assets/nba.csv")
+    nfl_df=pd.read_csv("assets/nfl.csv")
+    cities=pd.read_html("assets/wikipedia_data.html")[1]
+    cities=cities.iloc[:-1,[0,3,5,6,7,8]]
+
+    # load cities and get rid of [notes], __ values and white spaces
+    cities = pd.read_html("assets/wikipedia_data.html",na_values='—')[1]
+    cities = cities.iloc[:-1,[0,3,5,6,7,8]]
+    cities = cities.replace("\[.*\]","", regex=True).replace(r'^\s*$', np.nan, regex=True).replace(r'—', np.nan, regex=True)
+    cities.rename(columns={'Population (2016 est.)[8]':'Population'}, inplace=True)
+    cities = cities.astype({'Population': 'int64'}) # change to numeric type so the aggregation can be done
+    cities['area'] = cities['Metropolitan area'].apply(get_city_area) # adjuct the names
+
+    # Note: p_values is a full dataframe, so df.loc["NFL","NBA"] should be the same as df.loc["NBA","NFL"] and
+    # df.loc["NFL","NFL"] should return np.nan
+    sports = ['NFL', 'NBA', 'NHL', 'MLB']
+    p_values = pd.DataFrame({k:np.nan for k in sports}, index=sports)
+    
+    #assert abs(p_values.loc["NBA", "NHL"] - 0.02) <= 1e-2, "The NBA-NHL p-value should be around 0.02"
+    #assert abs(p_values.loc["MLB", "NFL"] - 0.80) <= 1e-2, "The MLB-NFL p-value should be around 0.80"
+    return cities#p_values
+
+sports_team_performance()
+==========================================================================
+
+
